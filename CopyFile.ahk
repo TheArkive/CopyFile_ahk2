@@ -10,6 +10,9 @@
 ; Example
 ; =============================================================================
 
+src := "" ; set these as needed for the test
+dest := ""
+
 progRoutineReturn := 0
 
 g := Gui(,"Copy Test")
@@ -24,10 +27,10 @@ g.Add("Edit","w300 r15 vData")
 g.Show()
 
 gui_events(ctl,info) {
-    Global eParam, src, dest, progRoutineReturn
+    Global src, dest, progRoutineReturn
     
     If (ctl.name = "Start") {
-        r := BCopyFile(src,dest,,progRoutine,1048576*2)
+        r := CopyFile(src,dest,,progRoutine,1048576*2)
     } Else if ctl.Name = "Pause" {
         progRoutineReturn := 2
         msgbox "Pause"
@@ -36,7 +39,7 @@ gui_events(ctl,info) {
         msgbox "Cancel"
     } Else if ctl.name = "Continue" {
         progRoutineReturn := 0
-        r := BCopyFile(src, dest) ; resume copy by passing same src/dest parameters
+        r := CopyFile(src, dest) ; resume copy by passing same src/dest parameters
     }
 }
 
