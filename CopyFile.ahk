@@ -13,6 +13,7 @@
 src := "" ; set these as needed for the test
 dest := ""
 
+CopyFile(,,,progRoutine,1048576*2) ; set callback and buffer size
 progRoutineReturn := 0
 
 g := Gui(,"Copy Test")
@@ -29,8 +30,10 @@ g.Show()
 gui_events(ctl,info) {
     Global src, dest, progRoutineReturn
     
+    r := ""
+    
     If (ctl.name = "Start") {
-        r := CopyFile(src,dest,,progRoutine,1048576*2)
+        r := CopyFile(src,dest,true)
     } Else if ctl.Name = "Pause" {
         progRoutineReturn := 2
         msgbox "Pause"
@@ -41,6 +44,9 @@ gui_events(ctl,info) {
         progRoutineReturn := 0
         r := CopyFile(src, dest) ; resume copy by passing same src/dest parameters
     }
+    
+    If r!=""
+        Msgbox "exit code: " r
 }
 
 progRoutine(obj) { ; callback function
@@ -62,14 +68,13 @@ progRoutine(obj) { ; callback function
 ; =============================================================================
 ; Usage:
 ;
-;   RetValue := CopyFile(src:="", dest:="", modes:="r", cb:="", buf:=1048576)
+;   RetValue := CopyFile(src:="", dest:="", overwrite:=false, cb:="", buf:=1048576)
 ;
 ; Parameters:
 ;
 ;   src/dest    = Source/Destination files.
 ;
-;   modes       = Modes to use when opening the src file.  These modes are the
-;                 same as AHK's FileOpen() modes.
+;   overwrite   = Set as FALSE by default.  This param is not remembered between calls.
 ;
 ;   cb          = A callback function to monitor progress.
 ;
@@ -81,12 +86,10 @@ progRoutine(obj) { ; callback function
 ;   process, you can resume the copy process by calling CopyFile() with the
 ;   same src/dest files.
 ;
-;   It is also possible to set the buffer/chunk size at the beginning of the
-;   script, or change the buffer size on the fly by calling:
+;   It is also possible to set the buffer/chunk size and/or callback at the
+;   beginning of the script, or change the buffer size on the fly by calling:
 ;
-;       CopyFile(,,,,BufSize)
-;
-;   Likewise you can change the callback on the fly if desired in the same way.
+;       CopyFile(,,,Callback,BufSize)
 ;
 ;   All internally saved stats are properly reset, depending on if the file is
 ;   completed, cancelled, or paused.
@@ -99,8 +102,8 @@ progRoutine(obj) { ; callback function
 ;
 ;   UNC paths are supported.
 ;
-;   I have yet to experience any performance boost from changing the copied
-;   chunk size.  The default is 1MB (1024**2 = 1,048,576 bytes).
+;   I have yet to experience any significant performance boost from changing the
+;   copied chunk size.  The default is 1MB (1024**2 = 1,048,576 bytes).
 ;
 ; *** WARNING ***
 ;
@@ -143,15 +146,18 @@ progRoutine(obj) { ; callback function
 ;   It is up to the coder to define those situations properly in code.
 ; =============================================================================
 
-CopyFile(src:="", dest:="", modes:="r", cb:="", buf:=1048576) {
-    Static _s:="", _d:="", _m:="", _cb:="", _b:="", i:=0, copied:=0, ReturnCode:=0
+CopyFile(src:="", dest:="", overwrite:=false, cb:="", buf:=1048576) {
+    Static _s:="", _d:="", _cb:="", _b:="", i:=0, copied:=0, ReturnCode:=0
+    ((cb!="")?_cb:=cb:""), _b:=buf
     
-    If src="" || !FileExist(src) || dest=""
+    If (src="" || !FileExist(src) || dest="") || (!overwrite && FileExist(dest))
         return false
+    Else If (overwrite && FileExist(dest))
+        FileDelete(dest)
     
-    ((_s="")?_s:=src:""), ((_d="")?_d:=dest:""), ((_cb="")?_cb:=cb:""), ((_m="")?_m:=modes:""), ((_b="")?_b:=buf:"")
-    sF := FileOpen(_s,_m), dF := FileOpen(_d,"a"), _c:=0, bSize := _b
-    (_s!=src || _d!=dest) ? (copied:=ReturnCode:=0, _cb:=cb) : (sF.Pos:=copied) ; start from 0 or resume
+    ((_s="")?_s:=src:""), ((_d="")?_d:=dest:"")
+    sF := FileOpen(_s,"r"), dF := FileOpen(_d,"a"), _c:=0, bSize := _b
+    (_s!=src || _d!=dest) ? (copied:=ReturnCode:=0) : (sF.Pos:=copied) ; start from 0 or resume
     
     While (copied < sF.Length) {
         b := Buffer(((remain:=sF.Length-sF.pos)>=bSize)?bSize:remain,0)
@@ -162,7 +168,7 @@ CopyFile(src:="", dest:="", modes:="r", cb:="", buf:=1048576) {
         If (ReturnCode>0) || (_c:=sF.Length=dF.Length) {
             sF.Close(), dF.Close(), b:=sF:=dF:=""
             If (ReturnCode=1) || (_c)
-                _s:=_d:=_cb:=_m:="", copied:=0, i:=0, ((ReturnCode=1)?FileDelete(dest):"")
+                _s:=_d:="", copied:=0, i:=0, ((ReturnCode=1)?FileDelete(dest):"")
             ReturnCode:=0
             Break
         }
