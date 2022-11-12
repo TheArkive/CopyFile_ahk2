@@ -150,7 +150,7 @@ CopyFile(src:="", dest:="", overwrite:=false, cb:="", buf:=1048576) {
     Static _s:="", _d:="", _cb:="", _b:="", i:=0, copied:=0, ReturnCode:=0
     ((cb!="")?_cb:=cb:""), _b:=buf
     
-    If (src="" || !FileExist(src) || dest="") || (!overwrite && FileExist(dest))
+    If (src="" || !FileExist(src) || dest="") || (!overwrite && FileExist(dest) && !copied)
         return false
     Else If (overwrite && FileExist(dest))
         FileDelete(dest)
